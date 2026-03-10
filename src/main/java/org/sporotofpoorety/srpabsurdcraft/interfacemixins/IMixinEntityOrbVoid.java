@@ -1,0 +1,12 @@
+package org.sporotofpoorety.srpabsurdcraft.interfacemixins;
+
+
+public interface IMixinEntityOrbVoid
+{
+    void whenOrbStartsGrowing();
+
+    boolean getOrbVoidIsAbsurdcraft();
+
+    void setOrbVoidIsAbsurdcraft(boolean isAbsurdcraft);
+    void setOrbPoos(double x, double y, double z);
+}

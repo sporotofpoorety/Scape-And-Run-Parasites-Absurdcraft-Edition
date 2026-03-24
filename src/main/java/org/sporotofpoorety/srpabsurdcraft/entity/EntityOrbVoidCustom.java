@@ -223,6 +223,7 @@ public class EntityOrbVoidCustom extends EntityOrbVoid {
 
     public void orbGrowingShower()
     {
+/*
 //Generate and return 150/100 blocks
 //in a random 64 cube, no owner, breaks them conditionally
         ArrayList<EntityThrownBlock> scatterBlocks = EntityUtil.generateAndReturnRandomBlocks(this,
@@ -272,6 +273,7 @@ public class EntityOrbVoidCustom extends EntityOrbVoid {
 
 //          System.out.println("Spawned test block at " + aimedBlock.posY);
         }
+*/
     }
 
 

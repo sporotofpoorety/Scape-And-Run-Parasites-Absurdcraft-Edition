@@ -132,14 +132,12 @@ public abstract class MixinEntityInfEnderman
     }
 
 
-
-/*
     @Inject
     (
-        method = "onLivingUpdate()V",
+//onLivingUpdate
+        method = "func_70636_d",
         at = @At("TAIL"),
-        require = 1,
-        remap = true
+        require = 1
     )
 //Crawls dynamically
     private void endermanAssimilatedcrawlingDynamically(CallbackInfo callInfo) 
@@ -164,5 +162,5 @@ public abstract class MixinEntityInfEnderman
             }
         }
     }
-*/
+
 }

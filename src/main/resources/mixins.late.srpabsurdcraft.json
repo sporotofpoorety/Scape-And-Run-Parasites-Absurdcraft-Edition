@@ -6,16 +6,21 @@
 	"minVersion": "0.8.5",
 	"compatibilityLevel": "JAVA_8",
 	"mixins": [
+        "MixinEntityAIDodAttack",
         "MixinEntityFerEnderman",
+        "MixinEntityHost",
+        "MixinEntityHostII",
         "MixinEntityInfEnderman",
         "MixinEntitySpeEnderman",
         "MixinEntityOrbVoid",
         "MixinEntityParasiteBase",
         "MixinEntityShyco",
+        "MixinParasiteEventEntity",
         "MixinSRPAttributes",
         "MixinSRPBlockFluid",
         "MixinSRPEffectBase",
-        "MixinSRPEventHandlerBus"
+        "MixinSRPEventHandlerBus",
+        "MixinSRPSaveData"
     ],
 	"server": [],
 	"client": []

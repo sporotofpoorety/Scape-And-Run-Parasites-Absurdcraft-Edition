@@ -13,6 +13,7 @@ public class SRPOverrideConfigSystems
         SRPConfigSystems.COTHItemPrevent = new String[]{"minecraft:golden_apple;1.0;99999999", "minecraft:golden_carrot;1.0;99999999"};
         SRPConfigSystems.COTHImmuneList = new String[]{"minecraft:chicken", "minecraft:cow", "minecraft:donkey", "minecraft:horse", "minecraft:llama", "minecraft:mooshroom", "minecraft:mule", "minecraft:ocelot", "minecraft:parrot", "minecraft:pig", "minecraft:polar_bear", "minecraft:sheep", "minecraft:squid", "minecraft:wolf", "oe:baby_squid", "oe:baby_glow_squid", "oe:clam", "oe:cod", "oe:crab", "oe:dolphin", "oe:glow_squid", "oe:lobster", "oe:pufferfish", "oe:salmon", "oe:tropical_fish", "oe:turtle", "primitivemobs:chameleon", "primitivemobs:dodo", "primitivemobs:filch_lizard", "primitivemobs:grovesprite"};
         SRPConfigSystems.COTHImmuneListWhite = true;
+        SRPConfigSystems.COTHVictimParasite = new String[]{"minecraft:enderman;srparasites:sim_enderman", "minecraft:polar_bear;srparasites:sim_bear", "minecraft:cow;srparasites:sim_cow", "minecraft:horse;srparasites:sim_horse", "minecraft:pig;srparasites:sim_pig", "minecraft:sheep;srparasites:sim_sheep", "minecraft:squid;srparasites:sim_squid", "minecraft:wolf;srparasites:sim_wolf"};
 
     
         SRPConfigSystems.generationUse = false;
@@ -23,7 +24,7 @@ public class SRPOverrideConfigSystems
 
 
         SRPConfigSystems.evolutionSleepDenied = 0;
-        SRPConfigSystems.evolutionTotalKill = 11;
+        SRPConfigSystems.evolutionTotalKill = 0;
         SRPConfigSystems.evolutionNoParasiteHealing = 11;
         SRPConfigSystems.evolutionNoParasiteSpawnDenied = 11;
         SRPConfigSystems.evolutionParasiteStatIncrease = 11;

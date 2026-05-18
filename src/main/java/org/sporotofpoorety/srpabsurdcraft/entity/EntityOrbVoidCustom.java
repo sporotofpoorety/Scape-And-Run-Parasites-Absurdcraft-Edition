@@ -1,5 +1,36 @@
 package org.sporotofpoorety.srpabsurdcraft.entity;
 
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.UUID;
+
+
+import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityLiving;
+import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.MoverType;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.init.Blocks;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.util.DamageSource;
+import net.minecraft.util.EnumParticleTypes;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+
+
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
+
+
 import com.dhanantry.scapeandrunparasites.client.particle.ParticleSpawner;
 import com.dhanantry.scapeandrunparasites.client.particle.SRPEnumParticle;
 import com.dhanantry.scapeandrunparasites.entity.EntityOrbVoid;
@@ -9,28 +40,14 @@ import com.dhanantry.scapeandrunparasites.entity.ai.misc.EntityPPreeminent;
 import com.dhanantry.scapeandrunparasites.entity.ai.misc.EntityPStationary;
 import com.dhanantry.scapeandrunparasites.entity.ai.misc.EntityParasiteBase;
 import com.dhanantry.scapeandrunparasites.init.SRPSounds;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityLiving;
-import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.network.datasync.DataParameter;
-import net.minecraft.network.datasync.DataSerializers;
-import net.minecraft.network.datasync.EntityDataManager;
-import net.minecraft.util.DamageSource;
-import net.minecraft.util.EnumParticleTypes;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.world.World;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
 
 
+import org.sporotofpoorety.eternitymode.core.EternityModeSoundEvents;
 import org.sporotofpoorety.eternitymode.entity.EntityThrownBlock;
 import org.sporotofpoorety.srpabsurdcraft.interfacemixins.IMixinEntityOrbVoid;
-import org.sporotofpoorety.eternitymode.util.EntityUtil;
+import org.sporotofpoorety.eternitymode.util.AbsurdcraftMathUtils;
+import org.sporotofpoorety.eternitymode.util.BlockUtil;
+import org.sporotofpoorety.eternitymode.util.EntityBlockData;
 
 
 
@@ -38,10 +55,9 @@ import org.sporotofpoorety.eternitymode.util.EntityUtil;
 //Lemme write down how the original 
 //logic flow works to try to make sense of it
 
-
 //Timers:
 
-//ticksExisted
+//ticksExisted (now realTicksExisted)
 //timeSinceIgnited
 //timerDDD
 
@@ -50,26 +66,28 @@ import org.sporotofpoorety.eternitymode.util.EntityUtil;
 
 //StartState/WAITSTART 
 //FuseState/FUSE       (Grows during this)
-//Hardcoded
+//Hardcoded (now orbDeflatesWhen and orbDiesWhen)
 
 
 //Functions:
 
 //onUpdate else
-//onUpdate main + orbDoing() + setSelfeState(1) + dyingBurst(true, 1) (Else branch)
-//selfExplode (called from dyingBurst() main branch)
+//onUpdate main + orbDoing() + setSelfeState(1) + dyingBurst()'s else branch(true, 1)
+//selfExplode (called from dyingBurst()'s main branch)
 
 
 
-public class EntityOrbVoidCustom extends EntityOrbVoid {
 
-
+public class EntityOrbVoidCustom extends EntityOrbVoid 
+{
     public IMixinEntityOrbVoid orbVoidMixin;
     public boolean orbFreeMoving = true;
 
 
 //Owner that doesn't have to be a parasite
-    public EntityLiving ownerCustom;
+    public EntityLiving owner;
+    public UUID ownerUUID;
+    public boolean previousValidateOwnerFailed;
 
 
 //Orb type
@@ -77,24 +95,36 @@ public class EntityOrbVoidCustom extends EntityOrbVoid {
 
 
 //This is necessary to keep or change size with differing timers
-    public float growthRate;
-    public float deflateRate;
+    public float growthRate = 1.0F;
+    public float deflateRate = 1.0F;
 
 //Orb death timer not hardcoded
-    public int orbDeflatesWhen;
-    public int orbDiesWhen;
+    public int orbDeflatesWhen = 80;
+    public int orbDiesWhen = 90;
+
+
+//List of blocks
+    public List<EntityBlockData> orbBlocks = new ArrayList<>();
+
+
+//Block expel
+    public double blockForceHorizontal;
+    public double blockForceVertical;
+    public double blockForceGeneral;
+    public double blockAcceleration = 1.0D;
+    public float blockDamage = 1.0F;
+
+    public int scatterBlockCount = 100;
+    public int aimedBlockCount = 100;
 
 
 //Shower orb specific
     public double riseSpeed;
     public double riseLimit;
 
-    public int scatterBlockCount;
-    public int aimedBlockCount;
 
-    public double blockForceHorizontal;
-    public double blockForceVertical;
-    public double blockAcceleration;
+//Homing fountain orb specific
+    public double homingFactor;
 
 
 
@@ -104,17 +134,9 @@ public class EntityOrbVoidCustom extends EntityOrbVoid {
         super(worldIn);
 
         this.setCustomOrbVoid();
-
-        this.ownerCustom = null;
-
-        this.growthRate = 1.0F;
-        this.deflateRate = 1.0F;
-
-        this.orbDeflatesWhen = 80;
-        this.orbDiesWhen = 90;
     }
 
-    public EntityOrbVoidCustom(World worldIn, EntityPMalleable in, EntityLiving ownerCustom, int fuse, int waitStart,
+    public EntityOrbVoidCustom(World worldIn, EntityPMalleable in, EntityLiving owner, int fuse, int waitStart,
     float growthRate, float deflateRate, int orbDeflatesWhen, int orbDiesWhen) 
     {
         super(worldIn);
@@ -124,7 +146,8 @@ public class EntityOrbVoidCustom extends EntityOrbVoid {
 
         this.setCustomOrbVoid();
 
-        this.ownerCustom = ownerCustom;
+        this.owner = owner;
+        if(this.owner != null) { this.ownerUUID = owner.getUniqueID(); }
 
         this.growthRate = growthRate;
         this.deflateRate = deflateRate;
@@ -133,7 +156,7 @@ public class EntityOrbVoidCustom extends EntityOrbVoid {
         this.orbDiesWhen = orbDiesWhen;
     }
 
-    public EntityOrbVoidCustom(World worldIn, EntityPMalleable in, EntityLiving ownerCustom, int fuse, int waitStart, boolean stayPY,
+    public EntityOrbVoidCustom(World worldIn, EntityPMalleable in, EntityLiving owner, int fuse, int waitStart, boolean stayPY,
     float growthRate, float deflateRate, int orbDeflatesWhen, int orbDiesWhen) 
     {
         super(worldIn);
@@ -143,7 +166,8 @@ public class EntityOrbVoidCustom extends EntityOrbVoid {
 
         this.setCustomOrbVoid();
 
-        this.ownerCustom = ownerCustom;
+        this.owner = owner;
+        if(this.owner != null) { this.ownerUUID = owner.getUniqueID(); }
 
         this.growthRate = growthRate;
         this.deflateRate = deflateRate;
@@ -154,24 +178,209 @@ public class EntityOrbVoidCustom extends EntityOrbVoid {
 
     public void setCustomOrbVoid()
     {
-        orbVoidMixin = (IMixinEntityOrbVoid) this;
+        this.orbVoidMixin = (IMixinEntityOrbVoid) this;
 
-        orbVoidMixin.setOrbVoidIsAbsurdcraft(true);
+        this.orbVoidMixin.setOrbVoidIsAbsurdcraft(true);
     }
 
-    public void setOrbShower(double riseSpeed, double riseLimit,
+    public void setOrbShower(double blockForceHorizontal, double blockForceVertical, double blockForceGeneral, double blockAcceleration, float blockDamage,
     int scatterBlockCount, int aimedBlockCount,
-    double blockForceHorizontal, double blockForceVertical, double blockAcceleration)
+    double riseSpeed, double riseLimit)
     {
-        this.riseSpeed = riseSpeed;
-        this.riseLimit = riseLimit;
+        this.blockForceHorizontal = blockForceHorizontal;
+        this.blockForceVertical = blockForceVertical;
+        this.blockForceGeneral = blockForceGeneral;
+        this.blockAcceleration = blockAcceleration;
+        this.blockDamage = blockDamage;
 
         this.scatterBlockCount = scatterBlockCount;
         this.aimedBlockCount = aimedBlockCount;
 
+        this.riseSpeed = riseSpeed;
+        this.riseLimit = riseLimit;
+    }
+
+    public void setOrbFountain(double blockForceHorizontal, double blockForceVertical, double blockForceGeneral, double blockAcceleration, float blockDamage,
+    int scatterBlockCount, int aimedBlockCount,
+    double homingFactor)
+    {
         this.blockForceHorizontal = blockForceHorizontal;
         this.blockForceVertical = blockForceVertical;
+        this.blockForceGeneral = blockForceGeneral;
         this.blockAcceleration = blockAcceleration;
+        this.blockDamage = blockDamage;
+
+        this.scatterBlockCount = scatterBlockCount;
+        this.aimedBlockCount = aimedBlockCount;
+
+        this.homingFactor = homingFactor;
+    }
+
+    public void writeEntityToNBT(NBTTagCompound compound) 
+    {
+//      super.writeEntityToNBT(compound);
+
+
+        compound.setInteger("RealTicksExisted", this.orbVoidMixin.getRealTicksExistede());
+        compound.setInteger("TimeSinceIgnited", this.timeSinceIgnited);
+        compound.setInteger("TimerDDD", this.timerDDD);
+
+//idk what this one does but yeah
+        compound.setInteger("LastActiveTime", this.lastActiveTime);
+
+        compound.setBoolean("OrbVoidIsAbsurdcraft", this.orbVoidMixin.getOrbVoidIsAbsurdcraft());
+
+
+        compound.setBoolean("OrbFreeMoving", this.orbFreeMoving);
+
+        if (compound.hasKey("OwnerUUID")) 
+        { 
+            this.ownerUUID = compound.getUniqueId("OwnerUUID"); 
+            this.validateOwner();
+        }
+
+        compound.setString("OrbCustomType", this.orbCustomType);
+
+        compound.setFloat("GrowthRate", this.growthRate);
+        compound.setFloat("DeflateRate", this.deflateRate);
+
+        compound.setInteger("OrbFuseState", this.getFuseState());
+        compound.setInteger("OrbStartState", this.getStartState());
+
+        compound.setInteger("OrbDeflatesWhen", this.orbDeflatesWhen);
+        compound.setInteger("OrbDiesWhen", this.orbDiesWhen);
+
+        this.nbtWriteBlockList(compound);       
+
+        compound.setDouble("BlockForceHorizontal", this.blockForceHorizontal);
+        compound.setDouble("BlockForceVertical", this.blockForceVertical);
+        compound.setDouble("BlockForceGeneral", this.blockForceGeneral); 
+        compound.setDouble("BlockAcceleration", this.blockAcceleration); 
+        compound.setFloat("BlockDamage", this.blockDamage); 
+
+        compound.setInteger("ScatterBlockCount", this.scatterBlockCount);
+        compound.setInteger("AimedBlockCount", this.aimedBlockCount);
+
+        compound.setDouble("RiseSpeed", this.riseSpeed);
+        compound.setDouble("RiseLimit", this.riseLimit);
+
+        compound.setDouble("HomingFactor", this.homingFactor);
+    }
+
+    public void readEntityFromNBT(NBTTagCompound compound) 
+    {
+//      super.readEntityFromNBT(compound);
+
+//Is nbt reading?
+        if (compound.hasKey("RealTicksExisted")) { this.orbVoidMixin.setRealTicksExistede(compound.getInteger("RealTicksExisted")); }
+        if (compound.hasKey("TimeSinceIgnited")) { this.timeSinceIgnited = compound.getInteger("TimeSinceIgnited"); }
+        if (compound.hasKey("TimerDDD")) { this.timerDDD = compound.getInteger("TimerDDD"); }
+
+//idk what this one does but yeah
+        if (compound.hasKey("LastActiveTime")) { this.lastActiveTime = compound.getInteger("LastActiveTime"); }
+
+        if (compound.hasKey("OrbVoidIsAbsurdcraft")) { this.orbVoidMixin.setOrbVoidIsAbsurdcraft(compound.getBoolean("OrbVoidIsAbsurdcraft")); }
+
+        
+        if (compound.hasKey("OrbFreeMoving")) { this.orbFreeMoving = compound.getBoolean("OrbFreeMoving"); }
+
+//      public EntityLiving owner;
+
+        if (compound.hasKey("OrbCustomType")) { this.orbCustomType = compound.getString("OrbCustomType"); }
+
+        if (compound.hasKey("GrowthRate")) { this.growthRate = compound.getFloat("GrowthRate"); }
+        if (compound.hasKey("DeflateRate")) { this.deflateRate = compound.getFloat("DeflateRate"); }
+
+        if (compound.hasKey("OrbFuseState")) { this.setFuseState(compound.getInteger("OrbFuseState")); }
+        if (compound.hasKey("OrbStartState")) { this.setStartState(compound.getInteger("OrbStartState")); }
+
+        if (compound.hasKey("OrbDeflatesWhen")) { this.orbDeflatesWhen = compound.getInteger("OrbDeflatesWhen"); }
+        if (compound.hasKey("OrbDiesWhen")) { this.orbDiesWhen = compound.getInteger("OrbDiesWhen"); }
+
+        this.nbtReadBlockList(compound);
+
+        if (compound.hasKey("BlockForceHorizontal")) { this.blockForceHorizontal = compound.getDouble("BlockForceHorizontal"); }
+        if (compound.hasKey("BlockForceVertical")) { this.blockForceVertical = compound.getDouble("BlockForceVertical"); }
+        if (compound.hasKey("BlockForceGeneral")) { this.blockForceGeneral = compound.getDouble("BlockForceGeneral"); }
+        if (compound.hasKey("BlockAcceleration")) { this.blockAcceleration = compound.getDouble("BlockAcceleration"); }
+        if (compound.hasKey("BlockDamage")) { this.blockDamage = compound.getFloat("BlockDamage"); }
+
+        if (compound.hasKey("ScatterBlockCount")) { this.scatterBlockCount = compound.getInteger("ScatterBlockCount"); }
+        if (compound.hasKey("AimedBlockCount")) { this.aimedBlockCount = compound.getInteger("AimedBlockCount"); }
+
+        if (compound.hasKey("RiseSpeed")) { this.riseSpeed = compound.getDouble("RiseSpeed"); }
+        if (compound.hasKey("RiseLimit")) { this.riseLimit = compound.getDouble("RiseLimit"); }
+
+        if (compound.hasKey("HomingFactor")) { this.homingFactor = compound.getDouble("HomingFactor"); }
+    }
+
+    public void nbtWriteBlockList(NBTTagCompound compound)
+    {
+//Puppet array to store
+        NBTTagList blockListToStore = new NBTTagList();
+
+//For each thrown block 
+        for (EntityBlockData blockData : this.orbBlocks) 
+        {
+//Make puppet map
+            NBTTagCompound blockDataToStore = new NBTTagCompound();
+                blockDataToStore.setInteger("OriginPosX", blockData.blockOrigin.getX());
+                blockDataToStore.setInteger("OriginPosY", blockData.blockOrigin.getY());
+                blockDataToStore.setInteger("OriginPosZ", blockData.blockOrigin.getZ());
+
+
+                Block basisBlock = blockData.basisState == null ? Blocks.AIR : blockData.basisState.getBlock();
+                blockDataToStore.setByte("Data", (byte)basisBlock.getMetaFromState(blockData.basisState));
+                ResourceLocation resourcelocation = Block.REGISTRY.getNameForObject(basisBlock);
+                blockDataToStore.setString("Block", resourcelocation == null ? "" : resourcelocation.toString());
+
+
+                blockDataToStore.setBoolean("DontPlaceBlock", blockData.dontPlaceBlock);
+                blockDataToStore.setBoolean("ShouldDropItem", blockData.shouldDropItem);
+                blockDataToStore.setBoolean("DealsDamage", blockData.dealsDamage);
+                blockDataToStore.setFloat("ThrownBlockDamage", blockData.thrownBlockDamage);
+//Append it to puppet array
+            blockListToStore.appendTag(blockDataToStore);
+        }
+        
+        compound.setTag("BlockDataArray", blockListToStore); 
+    }
+
+    public void nbtReadBlockList(NBTTagCompound compound)
+    {
+//Check for block data list
+        if (compound.hasKey("BlockDataArray")) 
+        {
+//It's an array of maps specifically
+            NBTTagList storedBlockList = compound.getTagList("BlockDataArray", 10);
+
+//For each stored block data
+            for (int i = 0; i < storedBlockList.tagCount(); i++) 
+            {
+//Fetch data as compound
+                NBTTagCompound storedBlock = storedBlockList.getCompoundTagAt(i);
+
+//Recreate stored IBlockState 
+//from metadata and resource location(please work)
+                int storedMeta = storedBlock.getByte("Data") & 255;
+                IBlockState storedState = Block.getBlockFromName(storedBlock.getString("Block")).getStateFromMeta(storedMeta); 
+
+
+//Make corresponding entity thrown block
+                EntityBlockData blockData = new EntityBlockData
+                (
+                    new BlockPos(storedBlock.getInteger("OriginPosX"), storedBlock.getInteger("OriginPosY"), storedBlock.getInteger("OriginPosZ")),
+                    storedState,
+                    storedBlock.getBoolean("DontPlaceBlock"),
+                    storedBlock.getBoolean("ShouldDropItem"),
+                    storedBlock.getBoolean("DealsDamage"),
+                    storedBlock.getFloat("ThrownBlockDamage")
+                );
+
+//Store in the block data list
+                this.orbBlocks.add(blockData);
+            }
+        }
     }
 
 
@@ -179,6 +388,65 @@ public class EntityOrbVoidCustom extends EntityOrbVoid {
 
     public void onUpdate()
     {
+//Increment real ticks existed
+        this.orbVoidMixin.setRealTicksExistede(this.orbVoidMixin.getRealTicksExistede() + 1);
+
+
+        int currentRealTicks = this.orbVoidMixin.getRealTicksExistede();
+    
+// DEBUG LOGGING
+/*
+        if (this.world.isRemote) 
+        {
+            if (currentRealTicks % 10 == 0) 
+            {
+                System.out.println("[CLIENT] RealTicks: " + currentRealTicks + 
+                                   " | Fuse: " + this.getFuseState() +
+                                   " | Start: " + this.getStartState() +
+                                   " | TimeSinceIgnited: " + this.timeSinceIgnited +  
+                                   " | TimerDDD: " + this.timerDDD + 
+                                   " | DeflatesWhen: " + this.orbDeflatesWhen + 
+                                   " | DiesWhen: " + this.orbDiesWhen + 
+                                   " | SelfeState: " + this.getSelfeState());
+            }
+        } 
+        else 
+        {
+            if (currentRealTicks % 10 == 0) 
+            {
+                System.out.println("[SERVER] RealTicks: " + currentRealTicks + 
+                                   " | Fuse: " + this.getFuseState() +
+                                   " | Start: " + this.getStartState() +  
+                                   " | TimeSinceIgnited: " + this.timeSinceIgnited +  
+                                   " | TimerDDD: " + this.timerDDD + 
+                                   " | DeflatesWhen: " + this.orbDeflatesWhen + 
+                                   " | DiesWhen: " + this.orbDiesWhen + 
+                                   " | SelfeState: " + this.getSelfeState());
+            }
+        }
+*/
+
+
+//Periodically validate owner
+        if(this.orbVoidMixin.getRealTicksExistede() % 20 == 0)
+        {
+//Checks for two failed validations in a row
+            if(this.performOwnerValidation()) { this.previousValidateOwnerFailed = false; }
+            else
+            {
+                this.previousValidateOwnerFailed = true;
+            }
+        }
+
+
+        if(this.orbVoidMixin.getRealTicksExistede() > this.getStartState())
+        {
+            this.orbDoingCustom();
+            this.setSelfeState(1);
+            this.dyingBurst(true, 1);
+        }
+
+
         super.onUpdate();
 
 
@@ -187,7 +455,7 @@ public class EntityOrbVoidCustom extends EntityOrbVoid {
         {
 */
 //If at max pre-growth ticks
-            if(this.ticksExisted == this.getStartState())
+            if(this.orbVoidMixin.getRealTicksExistede() == this.getStartState())
             {
 //Perform a function for start of growing
                 this.whenOrbStartsGrowing();
@@ -202,8 +470,9 @@ public class EntityOrbVoidCustom extends EntityOrbVoid {
             }
 
 
-            this.posX += this.motionX; this.posY += this.motionY; this.posZ += this.motionZ;
-//          if(this.orbFreeMoving) { this.poosX = this.posX; this.poosY = this.posY; this.poosZ = this.posZ; }
+//Free orb movement
+//            this.posX += this.motionX; this.posY += this.motionY; this.posZ += this.motionZ;
+            this.move(MoverType.SELF, this.motionX, this.motionY, this.motionZ);
             if(this.orbFreeMoving) { this.orbVoidMixin.setOrbPoos(this.posX, this.posY, this.posZ); }
 //        } 
     }
@@ -214,66 +483,50 @@ public class EntityOrbVoidCustom extends EntityOrbVoid {
 
     public void whenOrbStartsGrowing()
     {
-        if(this.orbCustomType.equals("blockshower"))
+        this.playSound(EternityModeSoundEvents.ENTITY_BLASTER_SOUND, 8.0F, 1.0F);
+
+        if(this.orbCustomType.equals("blockshower") || this.orbCustomType.equals("homingfountain"))
         {
-            this.orbGrowingShower();
+            this.orbGrowingPull();
         }
     }
 
 
-    public void orbGrowingShower()
+    public void orbGrowingPull()
     {
-/*
-//Generate and return 150/100 blocks
-//in a random 64 cube, no owner, breaks them conditionally
-        ArrayList<EntityThrownBlock> scatterBlocks = EntityUtil.generateAndReturnRandomBlocks(this,
-        null, this.scatterBlockCount, 64, 32, 2, 2);
-        ArrayList<EntityThrownBlock> aimedBlocks = EntityUtil.generateAndReturnRandomBlocks(this, 
-        null, this.aimedBlockCount, 64, 32, 2, 2);
+//Generate and return a ton of blocks
+        ArrayList<EntityThrownBlock> generatedBlocks = BlockUtil.generateAndReturnRandomBlocks(this,
+        this.owner, this.scatterBlockCount + this.aimedBlockCount, 32, 32, 2, true);
 
 
-        for(EntityThrownBlock scatterBlock : scatterBlocks)
+//For each one assign controller, 
+//low lifetime, noclip and home into this
+        for(EntityThrownBlock block : generatedBlocks)
         {
-            scatterBlock.owner = this.ownerCustom;
+//Give them damage
+            block.thrownBlockDamage = this.blockDamage;
 
-            scatterBlock.controller = this;
-            scatterBlock.controllerUUID = this.getUniqueID();
+            block.controller = this;
+            block.controllerUUID = this.getUniqueID();
 
-            scatterBlock.setBlockNormal(false);
+            block.setBlockSolid(false);
+
+//Gotta test if homing is precise
+            int pullTime = this.getFuseState() - 2;
+            block.setMovement(
+                (this.posX - block.posX) / (double) pullTime, (this.posY - block.posY) / (double) pullTime, (this.posZ - block.posZ) / (double) pullTime, 
+                0.0D, false, 1.0D);
+            block.lifetimeMax = pullTime;
+
+//Add each block's data to the list this has
+            EntityBlockData blockData = new EntityBlockData(block.getOrigin(), block.getBasisState(), 
+                block.dontPlaceBlock, block.shouldDropItem, block.dealsDamage, block.thrownBlockDamage);
+            this.orbBlocks.add(blockData);
 
 
-            scatterBlock.setBlockShower("shower", "scatter",
-            this.blockForceHorizontal, this.blockForceVertical,
-            0.04D, this.blockAcceleration);
-
-            scatterBlock.expelRadians = (2.0D * Math.PI) * rand.nextDouble();
-
-
-            if (!this.world.isRemote) { this.getEntityWorld().spawnEntity(scatterBlock); }
-
-//          System.out.println("Spawned test block at " + scatterBlock.posY);
+            if (!this.world.isRemote) { this.getEntityWorld().spawnEntity(block); }
         }
 
-        for(EntityThrownBlock aimedBlock : aimedBlocks)
-        {
-            aimedBlock.owner = this.ownerCustom;
-
-            aimedBlock.controller = this;
-            aimedBlock.controllerUUID = this.getUniqueID();
-
-            aimedBlock.setBlockNormal(false);
-
-
-            aimedBlock.setBlockShower("shower", "aimed",
-            this.blockForceHorizontal, this.blockForceVertical,
-            0.04D, this.blockAcceleration);
-
-
-            if(!this.world.isRemote) { this.getEntityWorld().spawnEntity(aimedBlock); }
-
-//          System.out.println("Spawned test block at " + aimedBlock.posY);
-        }
-*/
     }
 
 
@@ -284,14 +537,18 @@ public class EntityOrbVoidCustom extends EntityOrbVoid {
         {
             this.orbActiveShower();
         }
+        if(this.orbCustomType.equals("homingfountain"))
+        {
+            this.orbActiveHomingFountain();
+        }
     }
 
 
     public void orbActiveShower()
     {
-        if(this.ownerCustom != null)
+        if(this.owner != null)
         {
-            EntityLivingBase ownerTarget = ownerCustom.getAttackTarget();
+            EntityLivingBase ownerTarget = owner.getAttackTarget();
 //If owner has target
             if(ownerTarget != null)
             {
@@ -314,6 +571,69 @@ public class EntityOrbVoidCustom extends EntityOrbVoid {
         else
         {
             this.timerDDD = this.orbDeflatesWhen;
+        }
+    }
+
+
+    public void orbActiveHomingFountain()
+    {
+        if(!this.world.isRemote && this.timerDDD < this.orbDeflatesWhen)
+        {
+//Spew blocks
+            if(this.orbVoidMixin.getRealTicksExistede() > (this.getStartState() + this.getFuseState() + 2)
+            && !this.orbBlocks.isEmpty())
+            {
+                for(int blockAt = 0; blockAt < 3; blockAt++)
+                {
+                    int randomBlockIndex = this.rand.nextInt(this.orbBlocks.size());
+        
+                    EntityBlockData blockData = this.orbBlocks.get(randomBlockIndex);
+
+                    EntityThrownBlock block = new EntityThrownBlock(this.world, this.posX, this.posY, this.posZ, 
+                        this.owner, blockData.basisState, 
+                        true, true, true, blockData.thrownBlockDamage);
+                    block.setOrigin(blockData.blockOrigin);
+                    block.hasManualOrigin = true;
+                    block.dontBreakInitialPos = true;
+
+                    double shootRadian = this.rand.nextDouble() * 2.0D * Math.PI;
+                    block.setMovement(this.rand.nextDouble() * Math.cos(shootRadian) * this.blockForceHorizontal, 
+                        this.blockForceVertical * this.rand.nextDouble(), 
+                        this.rand.nextDouble() * Math.sin(shootRadian) * this.blockForceHorizontal, 
+                        0.08D, false, 1.0D);
+
+                    this.world.spawnEntity(block);
+                }
+            }
+
+
+//If owner not null
+            if(this.owner != null)
+            {
+//And owner target not null
+                EntityLivingBase ownerTarget = this.owner.getAttackTarget();
+                if(ownerTarget != null)
+                {
+//Get distance
+                    double targetDistX = ownerTarget.posX - this.posX;
+                    double targetDistY = (ownerTarget.posY + 8.0D) - this.posY;
+                    double targetDistZ = ownerTarget.posZ - this.posZ;
+
+//Accelerate based on how far target is
+                    double extraX = targetDistX * (0.0025D * this.homingFactor);
+                    double extraY = targetDistY * (0.0025D * this.homingFactor);
+                    double extraZ = targetDistZ * (0.0025D * this.homingFactor);
+//Stop previous movement if nearing time to explode
+                    if(this.timerDDD == this.orbDeflatesWhen + 1)
+                    {
+                        this.motionX = 0.0D; this.motionY = 0.0D; this.motionZ = 0.0D;
+                    }
+
+                    this.motionX += extraX;
+                    this.motionY += extraY;
+                    this.motionZ += extraZ;
+                }
+            }
         }
     }
 
@@ -351,6 +671,62 @@ public class EntityOrbVoidCustom extends EntityOrbVoid {
 
 
 
+    public boolean performOwnerValidation()
+    {
+        return this.validateOwner();
+    }
+
+
+    public boolean ownerValidConditions(Entity toValidate)
+    {
+        return (toValidate instanceof EntityLivingBase);
+    }
+
+
+//Validate owner and return if successful
+    public boolean validateOwner()
+    {
+
+//If there is a owner UUID
+        if(this.ownerUUID != null)
+        {
+//But no valid owner 
+            if(this.owner == null)
+            {
+//Try to get owner from UUID
+                Entity foundEntity  
+                = ((WorldServer)world).getEntityFromUuid(this.ownerUUID);
+
+
+//If owner found
+//and owner conditions met
+                if(foundEntity != null && this.ownerValidConditions(foundEntity))
+                {
+//Restore owner
+                    this.owner = (EntityLiving) foundEntity;
+//Check successful
+                    return true;
+                }
+            }
+
+//If there's both a owner and its UUID
+            else
+            {
+//Check successful
+                return true;
+            }
+        }
+
+
+//If no UUID, check failed
+        return false;
+
+    }
+
+
+
+
+//Visual disappearing logic
     @Override
     protected void selfExplode() 
     {
@@ -359,7 +735,7 @@ public class EntityOrbVoidCustom extends EntityOrbVoid {
 
         if (this.getSelfeState() == 2) 
         {
-            ++this.timerDDD;
+            if(!this.world.isRemote) { ++this.timerDDD; }
             if (this.timerDDD > this.orbDeflatesWhen) 
             {
                 this.setSize(Math.max(0.1F, this.width - (0.8F * this.deflateRate)), 
@@ -375,10 +751,91 @@ public class EntityOrbVoidCustom extends EntityOrbVoid {
                     }
                 }
 
-                this.playSound(SRPSounds.ORB_E, 1.0F, 1.0F);
-                if (this.timerDDD > orbDiesWhen) 
+//              this.playSound(SRPSounds.ORB_E, 1.0F, 1.0F);
+                if(!this.world.isRemote) 
+                { 
+                    if(this.timerDDD == this.orbDeflatesWhen + 1)
+                    {
+                        this.playSound(EternityModeSoundEvents.ENTITY_STAR_WINDUP, 8.0F, 1.0F);
+                    }
+                    if (this.timerDDD > orbDiesWhen) 
+                    {
+                        this.playSound(EternityModeSoundEvents.ENTITY_SLAM_EXPLOSION, 8.0F, 1.0F);
+                        this.releaseBlocks(); 
+                        this.setDead();
+                    }
+                }
+            }
+        }
+    }
+
+
+    public void releaseBlocks()
+    {
+        if(!this.orbBlocks.isEmpty())
+        {
+//Scattered blocks
+            for(int scatter = 0; scatter < this.scatterBlockCount; scatter++)
+            {
+                int randomBlockIndex = this.rand.nextInt(this.orbBlocks.size());
+
+                EntityBlockData blockData = this.orbBlocks.get(randomBlockIndex);
+
+                EntityThrownBlock block = new EntityThrownBlock(this.world, this.posX, this.posY, this.posZ, 
+                    this.owner, blockData.basisState, 
+                    true, true, true, blockData.thrownBlockDamage);
+                block.setOrigin(blockData.blockOrigin);
+                block.hasManualOrigin = true;
+                block.dontBreakInitialPos = true;
+
+                double shootRadian = this.rand.nextDouble() * 2.0D * Math.PI;
+                block.setMovement(this.rand.nextDouble() * Math.cos(shootRadian) * this.blockForceHorizontal, 
+                    this.blockForceVertical * this.rand.nextDouble(), 
+                    this.rand.nextDouble() * Math.sin(shootRadian) * this.blockForceHorizontal, 
+                    0.08D, false, 1.0D);
+
+                this.world.spawnEntity(block);
+            }
+            
+
+//Aimed blocks
+            if(this.owner != null)
+            {
+                EntityLivingBase ownerTarget = owner.getAttackTarget();
+//If owner has target
+                if(ownerTarget != null)
                 {
-                    this.setDead();
+//Make aim vectors around target
+                    Vec3d targetVec = new Vec3d(ownerTarget.posX - this.posX, (ownerTarget.posY + 8.0D) - this.posY, ownerTarget.posZ - this.posZ);
+                    ArrayList<Vec3d> aimVecs = AbsurdcraftMathUtils.fibonacciDirectionalSpread(targetVec, this.aimedBlockCount, 0.2D * Math.PI);
+
+//Get target vec length
+                    double targetDist = targetVec.length();
+//Get force factor
+                    double extraForceFactor = 0.01D * this.blockForceGeneral;
+
+                    for(Vec3d vec : aimVecs)
+                    {
+                        int randomBlockIndex = this.rand.nextInt(this.orbBlocks.size());
+
+                        EntityBlockData blockData = this.orbBlocks.get(randomBlockIndex);
+
+                        EntityThrownBlock block = new EntityThrownBlock(this.world, this.posX, this.posY, this.posZ, 
+                            this.owner, blockData.basisState, 
+                            true, true, true, blockData.thrownBlockDamage);
+                        block.setOrigin(blockData.blockOrigin);
+                        block.hasManualOrigin = true;
+                        block.dontBreakInitialPos = true;
+
+//Each block vec has a base amount,
+//multiplies more based on target distance, then slightly randomizes
+                        block.setMovement(vec.x * (1.0D + (targetDist * extraForceFactor)) * (1.0D + (this.rand.nextDouble() * 0.1D)), 
+                            vec.y * (1.0D + (targetDist * extraForceFactor)) * (1.0D + (this.rand.nextDouble() * 0.1D)), 
+                            vec.z * (1.0D + (targetDist * extraForceFactor)) * (1.0D + (this.rand.nextDouble() * 0.1D)), 
+                            0.08D, false, 1.0D);
+
+                        this.world.spawnEntity(block);
+                    }
                 }
             }
         }
@@ -388,7 +845,10 @@ public class EntityOrbVoidCustom extends EntityOrbVoid {
 //Clean out regular behavior
     protected void orbDoingCustom() 
     {
-
+        if(this.ticksExisted % 20 == 0)
+        {
+            this.playSound(EternityModeSoundEvents.ENTITY_BLASTER_CHARGING, 6.0F, 1.0F);
+        }
     }
    
 
@@ -406,13 +866,19 @@ public class EntityOrbVoidCustom extends EntityOrbVoid {
     public float getSelfeFlashIntensity(float p_70831_1_) 
     {
         return ((float)this.lastActiveTime + (float)(this.timeSinceIgnited - this.lastActiveTime) * p_70831_1_ * 5.0F) 
-        / (float) ((float) this.getFuseState() - (float) (2.0F * ((float) this.getFuseState() / 8.0F)));
+            / (float) ((float) this.getFuseState() - (float) (2.0F * ((float) this.getFuseState() / 8.0F)));
     }
 
 
 
 
+//New setters
+
+
+
+
 //New getters
+
     public int getTimeSinceIgnited()
     {
         return this.timeSinceIgnited;

@@ -15,6 +15,7 @@ import net.minecraftforge.fml.client.registry.RenderingRegistry;
 import com.dhanantry.scapeandrunparasites.client.renderer.entity.misc.RenderOrbVoid;
 
 
+import org.sporotofpoorety.srpabsurdcraft.client.render.RenderOrbVoidCustom;
 import org.sporotofpoorety.srpabsurdcraft.core.SRPAbsurdcraftCommonProxy;
 import org.sporotofpoorety.srpabsurdcraft.entity.*;
 

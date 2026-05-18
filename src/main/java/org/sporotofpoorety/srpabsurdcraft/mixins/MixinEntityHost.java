@@ -76,19 +76,22 @@ public abstract class MixinEntityHost
         EntityLiving selfLiving = (EntityLiving) (Object) this; 
 
 
-//Every 10 seconds
-        if (selfEntity.ticksExisted % 200 == 0) 
+        if(!selfEntity.world.isRemote)
         {
-//Get target
-            EntityLivingBase target = selfLiving.getAttackTarget();
-//If target not null and teleport conditions valid
-            if (target != null && this.teleportConditions(target.posX, target.posY + 0.5D, target.posZ))
+//Every 10 seconds
+            if (selfEntity.ticksExisted % 200 == 0) 
             {
+//Get target
+                EntityLivingBase target = selfLiving.getAttackTarget();
+//If target not null and teleport conditions valid
+                if (target != null && this.teleportConditions(target.posX, target.posY + 0.5D, target.posZ))
+                {
 //Make scheduled teleport
-                QueuedActionAtPos scheduledTeleport = new QueuedActionAtPos(target.posX, target.posY + 0.5D, target.posZ, selfEntity.world.getTotalWorldTime() + 40, 0); 
+                    QueuedActionAtPos scheduledTeleport = new QueuedActionAtPos(target.posX, target.posY + 0.5D, target.posZ, selfEntity.world.getTotalWorldTime() + 100, 0); 
 //Add scheduled teleport to this
-                ((IMixinEntityLiving) selfLiving).addQueuedAction(scheduledTeleport);
-            }  
+                    ((IMixinEntityLiving) selfLiving).addQueuedAction(scheduledTeleport);
+                }  
+            }
         }
     }
 
@@ -104,7 +107,7 @@ public abstract class MixinEntityHost
         if((selfEntity.ticksExisted % 5) == 0)
         {
 //If still has valid teleport conditions
-            if(this.teleportConditions(queuedAction.actionX, queuedAction.actionY + 1, queuedAction.actionZ))
+            if(this.teleportConditions(queuedAction.actionX, queuedAction.actionY, queuedAction.actionZ))
             {
 //Telegraph particles
                 for(int height = -1; height <= 3; height++)
@@ -124,28 +127,6 @@ public abstract class MixinEntityHost
         EntityLivingBase selfLivingBase = (EntityLivingBase) (Object) this; 
 
 
-/*
-//Teleport conditions check
-        if(this.teleportConditions(queuedAction.actionX, queuedAction.actionY, queuedAction.actionZ))
-        {
-//Add slowness
-            selfLivingBase.addPotionEffect(new PotionEffect(MobEffects.SLOWNESS, 40, 10, false, false));
-
-//Get suitable blockpos
-            BlockPos telePos = BlockUtil.findFirstSolidBlock
-                (selfEntity.world, (int) queuedAction.actionX, (int) queuedAction.actionY, (int) queuedAction.actionZ, 
-                1.0F, 10, 1);
-
-//If blockpos not null, go to it
-            if(telePos != null)
-            {
-                selfEntity.setLocationAndAngles
-                    ((double)telePos.getX() + 0.5D, (double)telePos.getY(), (double)telePos.getZ() + 0.5D, selfEntity.rotationYaw, selfEntity.rotationPitch);
-            }
-        }
-*/
-
-
 //Get suitable blockpos
         BlockPos telePos = BlockUtil.findFirstSolidBlock
             (selfEntity.world, (int) queuedAction.actionX, (int) queuedAction.actionY, (int) queuedAction.actionZ, 
@@ -156,9 +137,7 @@ public abstract class MixinEntityHost
         {
             selfLivingBase.addPotionEffect(new PotionEffect(MobEffects.SLOWNESS, 40, 10, false, false));
 
-            selfEntity.posX = (double) telePos.getX() + 0.5D;
-            selfEntity.posY = (double) telePos.getY() + 0.5D;
-            selfEntity.posZ = (double) telePos.getZ() + 0.5D;
+            selfEntity.setPosition((double) telePos.getX() + 0.5D, (double) telePos.getY() + 1.25D, (double) telePos.getZ() + 0.5D);
         }
     }
 
@@ -182,7 +161,7 @@ public abstract class MixinEntityHost
 //Get nearest ground blockpos from teleport location
                 BlockPos telePos = BlockUtil.findFirstSolidBlock
                     (selfEntity.world, (int) atX, (int) atY, (int) atZ, 
-                    1.0F, 5, 1);
+                    1.0F, 10, 1);
 //If found a valid one
                 if(telePos != null)
                 {

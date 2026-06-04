@@ -20,10 +20,10 @@ public class SRPAbsurdcraftEntityRegistry
 {
 
 //Register unspawnable entity
-//with default render tracker range and frequency
+//with specified render tracker range and frequency
     private static <T extends Entity> void registerUnspawnable
     (
-        RegistryEvent.Register<EntityEntry> event, Class<T> entityClass, String name, int id
+        RegistryEvent.Register<EntityEntry> event, Class<T> entityClass, String name, int id, int tracker
     ) 
     {
 //In the entity 
@@ -94,6 +94,6 @@ public class SRPAbsurdcraftEntityRegistry
     {
 
 //Pass this entity register event, the entity class, name and id
-        registerUnspawnable(event, EntityOrbVoidCustom.class, "void_orb_custom", id++);
+        registerUnspawnable(event, EntityOrbVoidCustom.class, "void_orb_custom", id++, 200);
     }
 }

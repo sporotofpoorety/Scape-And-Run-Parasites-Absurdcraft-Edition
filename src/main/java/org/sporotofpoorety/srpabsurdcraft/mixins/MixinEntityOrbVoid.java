@@ -91,7 +91,9 @@ public abstract class MixinEntityOrbVoid implements IMixinEntityOrbVoid
     @Unique private int realTicksExisted;
 
 //Real ticks existed
-    private static final DataParameter<Integer> REAL_TICKS_EXISTED = EntityDataManager.<Integer>createKey(EntityOrbVoid.class, DataSerializers.VARINT);
+    @Unique private static final DataParameter<Integer> REAL_TICKS_EXISTED = EntityDataManager.<Integer>createKey(EntityOrbVoid.class, DataSerializers.VARINT);
+    @Unique private static final DataParameter<Float> GROWTH_RATE = EntityDataManager.<Float>createKey(EntityOrbVoid.class, DataSerializers.FLOAT);
+    @Unique private static final DataParameter<Float> DEFLATE_RATE = EntityDataManager.<Float>createKey(EntityOrbVoid.class, DataSerializers.FLOAT);
 
 
 
@@ -104,11 +106,13 @@ public abstract class MixinEntityOrbVoid implements IMixinEntityOrbVoid
         require = 1
     )
 //On entity init
-    private void entityInitNewDataParameter(CallbackInfo callInfo)
+    private void entityInitNewDataParameters(CallbackInfo callInfo)
     {
         Entity selfEntity = (Entity) (Object) this;
-//Register the new data parameter
+//Register the new data parameters
         selfEntity.getDataManager().register(REAL_TICKS_EXISTED, Integer.valueOf(0));
+        selfEntity.getDataManager().register(GROWTH_RATE, Float.valueOf(2.0F));
+        selfEntity.getDataManager().register(DEFLATE_RATE, Float.valueOf(1.0F));
     }
 
 
@@ -303,6 +307,18 @@ public abstract class MixinEntityOrbVoid implements IMixinEntityOrbVoid
         return this.realTicksExisted;
     }
 
+    public float getGrowthRate()
+    {
+        Entity selfEntity = (Entity) (Object) this;
+        return ((Float)selfEntity.getDataManager().get(GROWTH_RATE)).floatValue();
+    }
+
+    public float getDeflateRate()
+    {
+        Entity selfEntity = (Entity) (Object) this;
+        return ((Float)selfEntity.getDataManager().get(DEFLATE_RATE)).floatValue();
+    }
+
     public boolean getOrbVoidIsAbsurdcraft()
     {
         return this.orbVoidIsAbsurdcraft;
@@ -319,6 +335,18 @@ public abstract class MixinEntityOrbVoid implements IMixinEntityOrbVoid
     public void setRealTicksExistede(int realTicks)
     {
         this.realTicksExisted = realTicks;
+    }
+
+    public void setGrowthRate(float growth)
+    {
+        Entity selfEntity = (Entity) (Object) this;
+        selfEntity.getDataManager().set(GROWTH_RATE, Float.valueOf(growth));    
+    }
+
+    public void setDeflateRate(float deflate)
+    {
+        Entity selfEntity = (Entity) (Object) this;
+        selfEntity.getDataManager().set(DEFLATE_RATE, Float.valueOf(deflate));    
     }
 
     public void setOrbVoidIsAbsurdcraft(boolean isAbsurdcraft)

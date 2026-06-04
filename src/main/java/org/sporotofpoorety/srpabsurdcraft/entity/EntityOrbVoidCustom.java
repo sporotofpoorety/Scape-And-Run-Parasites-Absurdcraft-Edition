@@ -17,6 +17,9 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
+import net.minecraft.network.datasync.DataParameter;
+import net.minecraft.network.datasync.DataSerializers;
+import net.minecraft.network.datasync.EntityDataManager;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.ResourceLocation;
@@ -48,6 +51,7 @@ import org.sporotofpoorety.srpabsurdcraft.interfacemixins.IMixinEntityOrbVoid;
 import org.sporotofpoorety.eternitymode.util.AbsurdcraftMathUtils;
 import org.sporotofpoorety.eternitymode.util.BlockUtil;
 import org.sporotofpoorety.eternitymode.util.EntityBlockData;
+import org.sporotofpoorety.eternitymode.util.ExplosionUtil;
 
 
 
@@ -93,10 +97,20 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
 //Orb type
     public String orbCustomType = "none";
 
+//Misc presentation
+    public boolean dontVisualExplosion;
+    public boolean dontSoundGrowing;
+    public boolean dontSoundActive;
+    public boolean dontSoundWarning;
+    public boolean dontSoundExplosion;
+
 
 //This is necessary to keep or change size with differing timers
+/*
     public float growthRate = 1.0F;
     public float deflateRate = 1.0F;
+*/
+
 
 //Orb death timer not hardcoded
     public int orbDeflatesWhen = 80;
@@ -125,6 +139,10 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
 
 //Homing fountain orb specific
     public double homingFactor;
+    public boolean homingSnapEnabled; 
+    public boolean homingSnapVertical; 
+    public double homingSnapThreshold;
+    public double homingSnapSteps;
 
 
 
@@ -149,8 +167,12 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
         this.owner = owner;
         if(this.owner != null) { this.ownerUUID = owner.getUniqueID(); }
 
+/*
         this.growthRate = growthRate;
         this.deflateRate = deflateRate;
+*/
+        this.orbVoidMixin.setGrowthRate(growthRate);
+        this.orbVoidMixin.setDeflateRate(deflateRate);
 
         this.orbDeflatesWhen = orbDeflatesWhen;
         this.orbDiesWhen = orbDiesWhen;
@@ -169,8 +191,12 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
         this.owner = owner;
         if(this.owner != null) { this.ownerUUID = owner.getUniqueID(); }
 
+/*
         this.growthRate = growthRate;
         this.deflateRate = deflateRate;
+*/
+        this.orbVoidMixin.setGrowthRate(growthRate);
+        this.orbVoidMixin.setDeflateRate(deflateRate);
 
         this.orbDeflatesWhen = orbDeflatesWhen;
         this.orbDiesWhen = orbDiesWhen;
@@ -202,7 +228,7 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
 
     public void setOrbFountain(double blockForceHorizontal, double blockForceVertical, double blockForceGeneral, double blockAcceleration, float blockDamage,
     int scatterBlockCount, int aimedBlockCount,
-    double homingFactor)
+    double homingFactor, boolean homingSnapEnabled, boolean homingSnapVertical, double homingSnapThreshold, double homingSnapSteps)
     {
         this.blockForceHorizontal = blockForceHorizontal;
         this.blockForceVertical = blockForceVertical;
@@ -214,6 +240,10 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
         this.aimedBlockCount = aimedBlockCount;
 
         this.homingFactor = homingFactor;
+        this.homingSnapEnabled = homingSnapEnabled;
+        this.homingSnapVertical = homingSnapVertical;
+        this.homingSnapThreshold = homingSnapThreshold;
+        this.homingSnapSteps = homingSnapSteps;
     }
 
     public void writeEntityToNBT(NBTTagCompound compound) 
@@ -241,8 +271,14 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
 
         compound.setString("OrbCustomType", this.orbCustomType);
 
-        compound.setFloat("GrowthRate", this.growthRate);
-        compound.setFloat("DeflateRate", this.deflateRate);
+        compound.setBoolean("DontVisualExplosion", this.dontVisualExplosion);
+        compound.setBoolean("DontSoundGrowing", this.dontSoundGrowing);
+        compound.setBoolean("DontSoundActive", this.dontSoundActive);
+        compound.setBoolean("DontSoundWarning", this.dontSoundWarning);
+        compound.setBoolean("DontSoundExplosion", this.dontSoundExplosion);
+
+        compound.setFloat("GrowthRate", this.orbVoidMixin.getGrowthRate());
+        compound.setFloat("DeflateRate", this.orbVoidMixin.getDeflateRate());
 
         compound.setInteger("OrbFuseState", this.getFuseState());
         compound.setInteger("OrbStartState", this.getStartState());
@@ -265,6 +301,10 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
         compound.setDouble("RiseLimit", this.riseLimit);
 
         compound.setDouble("HomingFactor", this.homingFactor);
+        compound.setBoolean("HomingSnapEnabled", this.homingSnapEnabled);
+        compound.setBoolean("HomingSnapVertical", this.homingSnapVertical);
+        compound.setDouble("HomingSnapThreshold", this.homingSnapThreshold);
+        compound.setDouble("HomingSnapSteps", this.homingSnapSteps);
     }
 
     public void readEntityFromNBT(NBTTagCompound compound) 
@@ -288,8 +328,14 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
 
         if (compound.hasKey("OrbCustomType")) { this.orbCustomType = compound.getString("OrbCustomType"); }
 
-        if (compound.hasKey("GrowthRate")) { this.growthRate = compound.getFloat("GrowthRate"); }
-        if (compound.hasKey("DeflateRate")) { this.deflateRate = compound.getFloat("DeflateRate"); }
+        if (compound.hasKey("DontVisualExplosion")) { this.dontVisualExplosion = compound.getBoolean("DontVisualExplosion"); }
+        if (compound.hasKey("DontSoundGrowing")) { this.dontSoundGrowing = compound.getBoolean("DontSoundGrowing"); }
+        if (compound.hasKey("DontSoundActive")) { this.dontSoundActive = compound.getBoolean("DontSoundActive"); }
+        if (compound.hasKey("DontSoundWarning")) { this.dontSoundWarning = compound.getBoolean("DontSoundWarning"); }
+        if (compound.hasKey("DontSoundExplosion")) { this.dontSoundExplosion = compound.getBoolean("DontSoundExplosion"); }
+
+        if (compound.hasKey("GrowthRate")) { this.orbVoidMixin.setGrowthRate(compound.getFloat("GrowthRate")); }
+        if (compound.hasKey("DeflateRate")) { this.orbVoidMixin.setDeflateRate(compound.getFloat("DeflateRate")); }
 
         if (compound.hasKey("OrbFuseState")) { this.setFuseState(compound.getInteger("OrbFuseState")); }
         if (compound.hasKey("OrbStartState")) { this.setStartState(compound.getInteger("OrbStartState")); }
@@ -312,6 +358,10 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
         if (compound.hasKey("RiseLimit")) { this.riseLimit = compound.getDouble("RiseLimit"); }
 
         if (compound.hasKey("HomingFactor")) { this.homingFactor = compound.getDouble("HomingFactor"); }
+        if (compound.hasKey("HomingSnapEnabled")) { this.homingSnapEnabled = compound.getBoolean("HomingSnapEnabled"); }
+        if (compound.hasKey("HomingSnapVertical")) { this.homingSnapVertical = compound.getBoolean("HomingSnapVertical"); }
+        if (compound.hasKey("HomingSnapThreshold")) { this.homingSnapThreshold = compound.getDouble("HomingSnapThreshold"); }
+        if (compound.hasKey("HomingSnapSteps")) { this.homingSnapSteps = compound.getDouble("HomingSnapSteps"); }
     }
 
     public void nbtWriteBlockList(NBTTagCompound compound)
@@ -483,7 +533,10 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
 
     public void whenOrbStartsGrowing()
     {
-        this.playSound(EternityModeSoundEvents.ENTITY_BLASTER_SOUND, 8.0F, 1.0F);
+        if(!this.dontSoundGrowing)
+        {
+            this.playSound(EternityModeSoundEvents.ENTITY_BLASTER_SOUND, 8.0F, 1.0F);
+        }
 
         if(this.orbCustomType.equals("blockshower") || this.orbCustomType.equals("homingfountain"))
         {
@@ -623,6 +676,30 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
                     double extraX = targetDistX * (0.0025D * this.homingFactor);
                     double extraY = targetDistY * (0.0025D * this.homingFactor);
                     double extraZ = targetDistZ * (0.0025D * this.homingFactor);
+
+//Can snap to target if strayed too far
+                    if(this.homingSnapEnabled)
+                    {
+                        if(this.homingSnapVertical)
+                        {
+                            if(Math.sqrt(targetDistX * targetDistX + targetDistY * targetDistY + targetDistZ * targetDistZ) >= this.homingSnapThreshold)
+                            {
+                                this.motionX = extraX * this.homingSnapSteps;
+                                this.motionY = extraY * this.homingSnapSteps;
+                                this.motionZ = extraZ * this.homingSnapSteps;
+                            }
+                        }
+                        else
+                        {
+                            if(Math.sqrt(targetDistX * targetDistX + targetDistZ * targetDistZ) >= this.homingSnapThreshold)
+                            {
+                                this.motionX = extraX * this.homingSnapSteps;
+                                this.motionY = extraY * this.homingSnapSteps;
+                                this.motionZ = extraZ * this.homingSnapSteps;
+                            }
+                        }
+                    }
+
 //Stop previous movement if nearing time to explode
                     if(this.timerDDD == this.orbDeflatesWhen + 1)
                     {
@@ -664,7 +741,7 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
 //If not fully fused scale it up
         else 
         {
-            this.setSize(this.width + (0.8F * this.growthRate), this.height + (0.32F * this.growthRate));
+            this.setSize(this.width + (0.8F * this.orbVoidMixin.getGrowthRate()), this.height + (0.32F * this.orbVoidMixin.getGrowthRate()));
         }
     }
 
@@ -738,8 +815,8 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
             if(!this.world.isRemote) { ++this.timerDDD; }
             if (this.timerDDD > this.orbDeflatesWhen) 
             {
-                this.setSize(Math.max(0.1F, this.width - (0.8F * this.deflateRate)), 
-                             Math.max(0.1F, this.height - (0.32F * this.deflateRate)));
+                this.setSize(Math.max(0.1F, this.width - (0.8F * this.orbVoidMixin.getDeflateRate())), 
+                             Math.max(0.1F, this.height - (0.32F * this.orbVoidMixin.getDeflateRate())));
                 if (this.world.isRemote) 
                 {
                     int par = this.getFuseState();
@@ -754,13 +831,25 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
 //              this.playSound(SRPSounds.ORB_E, 1.0F, 1.0F);
                 if(!this.world.isRemote) 
                 { 
-                    if(this.timerDDD == this.orbDeflatesWhen + 1)
+                    if(this.timerDDD == this.orbDeflatesWhen + 1 && !this.dontSoundWarning)
                     {
                         this.playSound(EternityModeSoundEvents.ENTITY_STAR_WINDUP, 8.0F, 1.0F);
                     }
                     if (this.timerDDD > orbDiesWhen) 
                     {
-                        this.playSound(EternityModeSoundEvents.ENTITY_SLAM_EXPLOSION, 8.0F, 1.0F);
+/*
+                        ExplosionUtil.performOptimizedExplosion(this.world, this.owner, this.posX, this.posY, this.posZ,
+                            1.6D * (double) this.orbVoidMixin.getGrowthRate() * (double) this.getFuseState(), false, 69420.0F, false, 69420.0D, false, 69420.0F, false, 
+                            true, 0, false);
+*/
+                        if(!this.dontVisualExplosion)
+                        {
+                            ExplosionUtil.explosionVisual(this.world, this.posX, this.posY, this.posZ, 1.2F * this.orbVoidMixin.getGrowthRate() * this.getFuseState());
+                        }
+                        if(!this.dontSoundExplosion)
+                        {
+                            this.playSound(EternityModeSoundEvents.ENTITY_SLAM_EXPLOSION, 8.0F, 1.0F);
+                        }
                         this.releaseBlocks(); 
                         this.setDead();
                     }
@@ -772,32 +861,11 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
 
     public void releaseBlocks()
     {
+        int totalScatterBlocks = this.scatterBlockCount;
+
+
         if(!this.orbBlocks.isEmpty())
         {
-//Scattered blocks
-            for(int scatter = 0; scatter < this.scatterBlockCount; scatter++)
-            {
-                int randomBlockIndex = this.rand.nextInt(this.orbBlocks.size());
-
-                EntityBlockData blockData = this.orbBlocks.get(randomBlockIndex);
-
-                EntityThrownBlock block = new EntityThrownBlock(this.world, this.posX, this.posY, this.posZ, 
-                    this.owner, blockData.basisState, 
-                    true, true, true, blockData.thrownBlockDamage);
-                block.setOrigin(blockData.blockOrigin);
-                block.hasManualOrigin = true;
-                block.dontBreakInitialPos = true;
-
-                double shootRadian = this.rand.nextDouble() * 2.0D * Math.PI;
-                block.setMovement(this.rand.nextDouble() * Math.cos(shootRadian) * this.blockForceHorizontal, 
-                    this.blockForceVertical * this.rand.nextDouble(), 
-                    this.rand.nextDouble() * Math.sin(shootRadian) * this.blockForceHorizontal, 
-                    0.08D, false, 1.0D);
-
-                this.world.spawnEntity(block);
-            }
-            
-
 //Aimed blocks
             if(this.owner != null)
             {
@@ -837,6 +905,38 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
                         this.world.spawnEntity(block);
                     }
                 }
+                else
+                {
+                    totalScatterBlocks += this.aimedBlockCount * 2;
+                }
+            }
+            else
+            {
+                totalScatterBlocks += this.aimedBlockCount * 2;
+            }
+
+
+//Scattered blocks
+            for(int scatter = 0; scatter < totalScatterBlocks; scatter++)
+            {
+                int randomBlockIndex = this.rand.nextInt(this.orbBlocks.size());
+
+                EntityBlockData blockData = this.orbBlocks.get(randomBlockIndex);
+
+                EntityThrownBlock block = new EntityThrownBlock(this.world, this.posX, this.posY, this.posZ, 
+                    this.owner, blockData.basisState, 
+                    true, true, true, blockData.thrownBlockDamage);
+                block.setOrigin(blockData.blockOrigin);
+                block.hasManualOrigin = true;
+                block.dontBreakInitialPos = true;
+
+                double shootRadian = this.rand.nextDouble() * 2.0D * Math.PI;
+                block.setMovement(this.rand.nextDouble() * Math.cos(shootRadian) * this.blockForceHorizontal, 
+                    this.blockForceVertical * this.rand.nextDouble(), 
+                    this.rand.nextDouble() * Math.sin(shootRadian) * this.blockForceHorizontal, 
+                    0.08D, false, 1.0D);
+
+                this.world.spawnEntity(block);
             }
         }
     }
@@ -847,7 +947,10 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
     {
         if(this.ticksExisted % 20 == 0)
         {
-            this.playSound(EternityModeSoundEvents.ENTITY_BLASTER_CHARGING, 6.0F, 1.0F);
+            if(!this.dontSoundActive)
+            {
+                this.playSound(EternityModeSoundEvents.ENTITY_BLASTER_CHARGING, 6.0F, 1.0F);
+            }
         }
     }
    
@@ -868,11 +971,6 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
         return ((float)this.lastActiveTime + (float)(this.timeSinceIgnited - this.lastActiveTime) * p_70831_1_ * 5.0F) 
             / (float) ((float) this.getFuseState() - (float) (2.0F * ((float) this.getFuseState() / 8.0F)));
     }
-
-
-
-
-//New setters
 
 
 

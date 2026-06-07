@@ -128,8 +128,11 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
     public double blockAcceleration = 1.0D;
     public float blockDamage = 1.0F;
 
+    public int fountainBlockRate = 3;
     public int scatterBlockCount = 100;
     public int aimedBlockCount = 100;
+    public boolean pullDontDestroy;
+    public int pullSearchDepth = 32;
 
 
 //Shower orb specific
@@ -227,7 +230,7 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
     }
 
     public void setOrbFountain(double blockForceHorizontal, double blockForceVertical, double blockForceGeneral, double blockAcceleration, float blockDamage,
-    int scatterBlockCount, int aimedBlockCount,
+    int fountainBlockRate, int scatterBlockCount, int aimedBlockCount,
     double homingFactor, boolean homingSnapEnabled, boolean homingSnapVertical, double homingSnapThreshold, double homingSnapSteps)
     {
         this.blockForceHorizontal = blockForceHorizontal;
@@ -236,6 +239,7 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
         this.blockAcceleration = blockAcceleration;
         this.blockDamage = blockDamage;
 
+        this.fountainBlockRate = fountainBlockRate;
         this.scatterBlockCount = scatterBlockCount;
         this.aimedBlockCount = aimedBlockCount;
 
@@ -294,8 +298,11 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
         compound.setDouble("BlockAcceleration", this.blockAcceleration); 
         compound.setFloat("BlockDamage", this.blockDamage); 
 
+        compound.setInteger("FountainBlockRate", this.fountainBlockRate);
         compound.setInteger("ScatterBlockCount", this.scatterBlockCount);
         compound.setInteger("AimedBlockCount", this.aimedBlockCount);
+        compound.setBoolean("PullDontDestroy", this.pullDontDestroy);
+        compound.setInteger("PullSearchDepth", this.pullSearchDepth);
 
         compound.setDouble("RiseSpeed", this.riseSpeed);
         compound.setDouble("RiseLimit", this.riseLimit);
@@ -351,8 +358,11 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
         if (compound.hasKey("BlockAcceleration")) { this.blockAcceleration = compound.getDouble("BlockAcceleration"); }
         if (compound.hasKey("BlockDamage")) { this.blockDamage = compound.getFloat("BlockDamage"); }
 
+        if (compound.hasKey("FountainBlockRate")) { this.fountainBlockRate = compound.getInteger("FountainBlockRate"); }
         if (compound.hasKey("ScatterBlockCount")) { this.scatterBlockCount = compound.getInteger("ScatterBlockCount"); }
         if (compound.hasKey("AimedBlockCount")) { this.aimedBlockCount = compound.getInteger("AimedBlockCount"); }
+        if (compound.hasKey("PullDontDestroy")) { this.pullDontDestroy = compound.getBoolean("PullDontDestroy"); }
+        if (compound.hasKey("PullSearchDepth")) { this.pullSearchDepth = compound.getInteger("PullSearchDepth"); }
 
         if (compound.hasKey("RiseSpeed")) { this.riseSpeed = compound.getDouble("RiseSpeed"); }
         if (compound.hasKey("RiseLimit")) { this.riseLimit = compound.getDouble("RiseLimit"); }
@@ -549,7 +559,7 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
     {
 //Generate and return a ton of blocks
         ArrayList<EntityThrownBlock> generatedBlocks = BlockUtil.generateAndReturnRandomBlocks(this,
-        this.owner, this.scatterBlockCount + this.aimedBlockCount, 32, 32, 2, true);
+        this.owner, this.scatterBlockCount + this.aimedBlockCount, 32, this.pullSearchDepth, 2, !this.pullDontDestroy);
 
 
 //For each one assign controller, 
@@ -636,7 +646,7 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
             if(this.orbVoidMixin.getRealTicksExistede() > (this.getStartState() + this.getFuseState() + 2)
             && !this.orbBlocks.isEmpty())
             {
-                for(int blockAt = 0; blockAt < 3; blockAt++)
+                for(int blockAt = 0; blockAt < this.fountainBlockRate; blockAt++)
                 {
                     int randomBlockIndex = this.rand.nextInt(this.orbBlocks.size());
         

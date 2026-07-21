@@ -47,11 +47,14 @@ import com.dhanantry.scapeandrunparasites.init.SRPSounds;
 
 import org.sporotofpoorety.eternitymode.core.EternityModeSoundEvents;
 import org.sporotofpoorety.eternitymode.entity.EntityThrownBlock;
-import org.sporotofpoorety.srpabsurdcraft.interfacemixins.IMixinEntityOrbVoid;
-import org.sporotofpoorety.eternitymode.util.AbsurdcraftMathUtils;
+import org.sporotofpoorety.eternitymode.packets.ExplosionVisualPacket;
 import org.sporotofpoorety.eternitymode.util.BlockUtil;
+import org.sporotofpoorety.eternitymode.util.DirectionalSpreadUtil;
+import org.sporotofpoorety.eternitymode.util.PacketUtil;
 import org.sporotofpoorety.eternitymode.util.EntityBlockData;
 import org.sporotofpoorety.eternitymode.util.ExplosionUtil;
+
+import org.sporotofpoorety.srpabsurdcraft.interfacemixins.IMixinEntityOrbVoid;
 
 
 
@@ -267,7 +270,7 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
 
         compound.setBoolean("OrbFreeMoving", this.orbFreeMoving);
 
-        if (compound.hasKey("OwnerUUID")) 
+        if (compound.hasUniqueId("OwnerUUID")) 
         { 
             this.ownerUUID = compound.getUniqueId("OwnerUUID"); 
             this.validateOwner();
@@ -421,7 +424,7 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
                 NBTTagCompound storedBlock = storedBlockList.getCompoundTagAt(i);
 
 //Recreate stored IBlockState 
-//from metadata and resource location(please work)
+//from metadata and resource location (please work)
                 int storedMeta = storedBlock.getByte("Data") & 255;
                 IBlockState storedState = Block.getBlockFromName(storedBlock.getString("Block")).getStateFromMeta(storedMeta); 
 
@@ -562,15 +565,12 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
         this.owner, this.scatterBlockCount + this.aimedBlockCount, 32, this.pullSearchDepth, 2, !this.pullDontDestroy);
 
 
-//For each one assign controller, 
+//For each one
 //low lifetime, noclip and home into this
         for(EntityThrownBlock block : generatedBlocks)
         {
 //Give them damage
             block.thrownBlockDamage = this.blockDamage;
-
-            block.controller = this;
-            block.controllerUUID = this.getUniqueID();
 
             block.setBlockSolid(false);
 
@@ -847,14 +847,10 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
                     }
                     if (this.timerDDD > orbDiesWhen) 
                     {
-/*
-                        ExplosionUtil.performOptimizedExplosion(this.world, this.owner, this.posX, this.posY, this.posZ,
-                            1.6D * (double) this.orbVoidMixin.getGrowthRate() * (double) this.getFuseState(), false, 69420.0F, false, 69420.0D, false, 69420.0F, false, 
-                            true, 0, false);
-*/
                         if(!this.dontVisualExplosion)
                         {
-                            ExplosionUtil.explosionVisual(this.world, this.posX, this.posY, this.posZ, 1.2F * this.orbVoidMixin.getGrowthRate() * this.getFuseState());
+                            PacketUtil.sendPacketToNearbyPlayers(this.world, this.posX, this.posY, this.posZ, 999.0D, 
+                                new ExplosionVisualPacket(1, this.posX, this.posY, this.posZ, 1.2F * this.orbVoidMixin.getGrowthRate() * this.getFuseState(), false));
                         }
                         if(!this.dontSoundExplosion)
                         {
@@ -885,7 +881,7 @@ public class EntityOrbVoidCustom extends EntityOrbVoid
                 {
 //Make aim vectors around target
                     Vec3d targetVec = new Vec3d(ownerTarget.posX - this.posX, (ownerTarget.posY + 8.0D) - this.posY, ownerTarget.posZ - this.posZ);
-                    ArrayList<Vec3d> aimVecs = AbsurdcraftMathUtils.fibonacciDirectionalSpread(targetVec, this.aimedBlockCount, 0.2D * Math.PI);
+                    ArrayList<Vec3d> aimVecs = DirectionalSpreadUtil.fibonacciDirectionalSpread(targetVec, this.aimedBlockCount, 0.2D * Math.PI);
 
 //Get target vec length
                     double targetDist = targetVec.length();

@@ -26,6 +26,9 @@ import com.dhanantry.scapeandrunparasites.entity.ai.misc.EntityParasiteBase;
 import com.dhanantry.scapeandrunparasites.entity.monster.feral.EntityFerEnderman;
 
 
+import org.sporotofpoorety.eternitymode.interfacemixins.IMixinEntityLivingBase;
+
+
 
 
 //Mixin this class
@@ -165,4 +168,21 @@ public abstract class MixinEntityFerEnderman
         }
     }
 */
+
+
+    @Inject
+    (
+//entityInit
+        method = "func_70088_a",
+        at = @At("TAIL"),
+        require = 1
+    )
+//Afterimages
+    private void endermanFeralAfterimages(CallbackInfo callInfo) 
+    {
+        EntityLivingBase selfEntityLivingBase = (EntityLivingBase) (Object) this;
+
+
+        ((IMixinEntityLivingBase) selfEntityLivingBase).setHasAfterimages(true);
+    }
 }
